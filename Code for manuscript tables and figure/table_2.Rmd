@@ -1,0 +1,145 @@
+---
+title: "Table 3"
+author: "Gina Guzzo"
+date: "11/02/2025"
+output: html_document
+---
+
+Load libraries and packages.
+```{r, include = FALSE}
+library(kableExtra)
+library(rmarkdown)
+set.seed(42)
+library(qwraps2)
+# define the markup language we are working in.
+# options(qwraps2_markup = "latex") is also supported.
+options(qwraps2_markup = "markdown")
+library(readxl) 
+library(dplyr)
+library(tidyr)
+library(openxlsx)
+
+```
+
+
+## 1. Data cleaning
+
+Load metadata table from follow-up.
+```{r}
+## Import data tables.
+fin_md <- read_excel("all_metadata_financial.xlsx")
+
+fol_md <- read.csv("follow_up_metadata.csv")
+
+## Merge metadata.
+metadata <- left_join(fin_md, fol_md, by = "p_ID")
+```
+
+
+Format categorical variables.
+```{r}
+
+## Format categorical variables
+# Age
+metadata$age_range <- ifelse(metadata$age < 18, "Under 18",
+                             ifelse(metadata$age > 17 & metadata$age < 30, "18 to 29",
+                                ifelse(metadata$age > 29 & metadata$age < 46, "30 to 45", 
+                                    ifelse(metadata$age > 45 & metadata$age < 61, "46 to 60", 
+                                           ifelse(metadata$age > 60, "Over 60", NA)))))
+
+metadata$age_range <- factor(metadata$age_range, order = TRUE, 
+                           levels = c("Under 18", "18 to 29", "30 to 45", "46 to 60", "Over 60", NA))
+
+# Location
+metadata <- metadata %>%
+  mutate(
+    remoteness_group = case_when(
+      remoteness %in% c("Major Cities of Australia", "Inner Regional Australia") ~ "Metropolitan and Inner Regional",
+      remoteness %in% c("Outer Regional Australia", "Remote Australia", "Very Remote Australia") ~ "Outer Regional, Remote, and Very Remote"
+    )
+  )
+
+
+
+# Difficulty paying $100 dental bill
+metadata$bill_cat <- metadata$pay_100_dollar
+metadata$bill_cat <- ifelse(metadata$pay_100_dollar == "1", "Not hard or not very hard",
+                           ifelse(metadata$pay_100_dollar == "2", "Not hard or not very hard",
+                                ifelse(metadata$pay_100_dollar == "3", "A little bit hard",
+                                   ifelse(metadata$pay_100_dollar == "4", "Very hard or could not pay",
+                                          ifelse(metadata$pay_100_dollar == "5", "Very hard or could not pay",
+                                  metadata$bill_cat)))))
+#metadata$bill_cat <- replace_na(metadata$bill_cat, "missing") #Replace NAs with categorical variable
+metadata$bill_cat <- factor(metadata$bill_cat, order = TRUE, 
+                           levels = c("Not hard or not very hard", "A little bit hard", "Very hard or could not pay"))
+```
+
+
+## 2. Table 3
+
+Calculate average costs spent for each type of treatment spent.
+```{r}
+# Function to summarize cost by groups
+summary_table <- metadata %>%
+  group_by(age_range) %>%
+  summarise(
+    Count = n(),
+    Median_Cost = median(total_cost, na.rm = TRUE),
+        Q1_Cost = quantile(total_cost, 0.25, na.rm = TRUE),
+        Q3_Cost = quantile(total_cost, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(Group = "Age") %>%
+  rename(Category = age_range) %>%
+  bind_rows(
+    metadata %>%
+      group_by(remoteness_group) %>%
+      summarise(
+        Count = n(),
+        Median_Cost = median(total_cost, na.rm = TRUE),
+        Q1_Cost = quantile(total_cost, 0.25, na.rm = TRUE),
+        Q3_Cost = quantile(total_cost, 0.75, na.rm = TRUE)
+      ) %>%
+      mutate(Group = "Remoteness") %>%
+      rename(Category = remoteness_group)
+  ) %>%
+  bind_rows(
+    metadata %>%
+      group_by(bill_cat) %>%
+      summarise(
+        Count = n(),
+        Median_Cost = median(total_cost, na.rm = TRUE),
+        Q1_Cost = quantile(total_cost, 0.25, na.rm = TRUE),
+        Q3_Cost = quantile(total_cost, 0.75, na.rm = TRUE)
+      ) %>%
+      mutate(Group = "How hard would it be to pay a $100 dental bill?") %>%
+      rename(Category = bill_cat)
+  ) %>%
+  bind_rows(
+    metadata %>%
+      summarise(
+        Count = n(),
+        Median_Cost = median(total_cost, na.rm = TRUE),
+        Q1_Cost = quantile(total_cost, 0.25, na.rm = TRUE),
+        Q3_Cost = quantile(total_cost, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(Group = "Overall", Category = "Total cohort")
+  ) %>%  
+  select(Group, Category, Count, Median_Cost, Q1_Cost, Q3_Cost)
+
+# Format the table for display
+summary_table %>%
+  mutate(
+    Median_Cost = paste0("$", formatC(Median_Cost, format = "f", big.mark = ",", digits = 2)),
+    IQR_Cost = paste0("$", formatC(Q1_Cost, format = "f", big.mark = ",", digits = 2), " - $", 
+                      formatC(Q3_Cost, format = "f", big.mark = ",", digits = 2))
+  ) %>%
+  select(Group, Category, Count, Median_Cost, IQR_Cost) %>%
+  rename("Group" = Group, "Category" = Category, "Number of Individuals" = Count, 
+         "Median Cost" = Median_Cost, "IQR of Cost (Q1 - Q3)" = IQR_Cost) %>%
+  knitr::kable()
+
+```
+
+
+
+

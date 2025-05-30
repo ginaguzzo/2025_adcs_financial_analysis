@@ -1,0 +1,94 @@
+---
+title: "Table 4"
+author: "Gina Guzzo"
+date: "11/02/2025"
+output: html_document
+---
+
+Load libraries and packages.
+
+```{r, include = FALSE}
+library(kableExtra)
+library(rmarkdown)
+set.seed(42)
+library(qwraps2)
+# define the markup language we are working in.
+# options(qwraps2_markup = "latex") is also supported.
+options(qwraps2_markup = "markdown")
+library(readxl) 
+library(dplyr)
+library(tidyr)
+library(openxlsx)
+
+```
+
+## 1. Data cleaning.
+
+Format metadata table from follow-up.
+```{r}
+## Import data tables.
+fin_md <- read_excel("all_metadata_financial.xlsx")
+
+fol_md <- read.csv("follow_up_metadata.csv")
+
+## Merge metadata.
+metadata <- left_join(fin_md, fol_md, by = "p_ID")
+
+#write.xlsx(metadata, 
+#           file = "all_metadata_combined_from_r.xlsx")
+
+```
+
+
+
+Format variables for table.
+```{r}
+## Reverse values for self-rated general and oral health, so the higher the score, the better the rating. I.e., 1 - poor, 5 - excellent.
+columns_to_reverse <- c("gen_health_rating", "oral_health_rating", "general_health_rate", "oral_health_rate", "uncomf", "pain", "self_conscious",
+                        "taste", "jobs_difficult")
+metadata[columns_to_reverse] <- 5 - metadata[columns_to_reverse]
+
+
+
+
+## Change variable names.
+metadata <- metadata %>%
+  rename(oral_health_pre = oral_health_rating, 
+         oral_health_post = oral_health_rate,
+         general_health_pre = gen_health_rating,
+         general_health_post = general_health_rate)
+
+```
+
+## 2. Table 3
+
+```{r}
+library(dplyr)
+
+summary_table <- metadata %>%
+  # Calculate average health scores and differences
+  summarize(
+    Oral_Pre = sprintf("%.2f ± %.2f", mean(oral_health_pre, na.rm = TRUE), sd(oral_health_pre, na.rm = TRUE)),
+    Oral_Post = sprintf("%.2f ± %.2f", mean(oral_health_post, na.rm = TRUE), sd(oral_health_post, na.rm = TRUE)),
+    Oral_Change = sprintf("%.2f ± %.2f", mean(oral_health_post - oral_health_pre, na.rm = TRUE), sd(oral_health_post - oral_health_pre, na.rm = TRUE)),
+    
+    General_Pre = sprintf("%.2f ± %.2f", mean(general_health_pre, na.rm = TRUE), sd(general_health_pre, na.rm = TRUE)),
+    General_Post = sprintf("%.2f ± %.2f", mean(general_health_post, na.rm = TRUE), sd(general_health_post, na.rm = TRUE)),
+    General_Change = sprintf("%.2f ± %.2f", mean(general_health_post - general_health_pre, na.rm = TRUE), sd(general_health_post - general_health_pre, na.rm = TRUE))
+  ) %>%
+  # Reshape into final printable format
+  tidyr::pivot_longer(everything(), names_to = "Metric", values_to = "Value") %>%
+  tidyr::separate(Metric, into = c("Scale", "Time"), sep = "_") %>%
+  tidyr::pivot_wider(names_from = Time, values_from = Value) %>%
+  rename(
+    `Self-rated health scales` = Scale,
+    `Pre-treatment (avg ± SD)` = Pre,
+    `Post-treatment (avg ± SD)` = Post,
+    `Avg difference (Δ)` = Change
+  )
+
+print(summary_table)
+```
+
+
+

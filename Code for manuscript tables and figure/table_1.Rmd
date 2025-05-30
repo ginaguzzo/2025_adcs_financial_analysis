@@ -1,0 +1,211 @@
+---
+title: "Table 1"
+author: "Gina Guzzo"
+date: "14/01/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load libraries and packages.
+
+```{r, include = FALSE}
+library(kableExtra)
+library(rmarkdown)
+set.seed(42)
+library(qwraps2)
+# define the markup language we are working in.
+# options(qwraps2_markup = "latex") is also supported.
+options(qwraps2_markup = "markdown")
+library(readxl) 
+
+```
+
+## 1. Data cleaning
+
+Import data. 
+Format categorical variables so that NA's are coded into a variable that can be read by the table calculations.
+
+```{r, include = FALSE}
+metadata <- read_excel("all_metadata.xlsx")
+
+## Format categorical variables
+# Age
+metadata$age_range <- ifelse(metadata$age < 18, "Under 18",
+                             ifelse(metadata$age > 17 & metadata$age < 30, "18-29",
+                                ifelse(metadata$age > 29 & metadata$age < 46, "30-45", 
+                                    ifelse(metadata$age > 45 & metadata$age < 61, "46-60", 
+                                           ifelse(metadata$age > 60, "61+", NA)))))
+
+# Location
+metadata <- metadata %>%
+  mutate(
+    remoteness_group = case_when(
+      remoteness %in% c("Major Cities of Australia", "Inner Regional Australia") ~ "Metropolitan and Inner Regional",
+      remoteness %in% c("Outer Regional Australia", "Remote Australia", "Very Remote Australia") ~ "Outer Regional, Remote, and Very Remote"
+    )
+  )
+
+
+# Employment
+metadata$emp_cat <- metadata$income
+metadata$emp_cat <- ifelse(metadata$income == "2", "2 or 3",
+                           ifelse(metadata$income == "3", "2 or 3",
+                                  metadata$emp_cat))
+metadata$emp_cat <- replace_na(metadata$emp_cat, "missing") #Replace NAs with categorical variable
+metadata$emp_cat <- ifelse(metadata$adult_child == "child", NA,
+                           metadata$emp_cat)
+
+
+# Education level
+metadata$edu_cat <- metadata$education
+metadata$edu_cat <- ifelse(metadata$education == "4", "4 or 5",
+                           ifelse(metadata$education == "5", "4 or 5",
+                                  metadata$edu_cat))
+metadata$edu_cat <- replace_na(metadata$edu_cat, "missing") #Replace NAs with categorical variable
+metadata$edu_cat <- ifelse(metadata$adult_child == "child", NA,
+                           metadata$edu_cat)
+
+
+
+# Difficulty paying $100 dental bill
+metadata$bill_cat <- metadata$pay_100_dollar
+metadata$bill_cat <- ifelse(metadata$pay_100_dollar == "1", "1 or 2",
+                           ifelse(metadata$pay_100_dollar == "2", "1 or 2",
+                                   ifelse(metadata$pay_100_dollar == "4", "4 or 5",
+                                          ifelse(metadata$pay_100_dollar == "5", "4 or 5",
+                                  metadata$bill_cat))))
+metadata$bill_cat <- replace_na(metadata$bill_cat, "missing") #Replace NAs with categorical variable
+
+
+# Last dental visit
+metadata$last_dent_visit <- as.character(metadata$last_dent_visit)
+metadata$last_dent_visit <- replace_na(metadata$last_dent_visit, "missing") #Replace NAs with categorical variable
+
+
+# Usual reason for dental visits
+metadata$dentist_reason_cat <- as.character(metadata$dentist_reason)
+metadata$dentist_reason_cat <- replace_na(metadata$dentist_reason_cat, "missing") #Replace NAs with categorical variable
+
+
+# Self-rated general health scale: 1 - excellent, 5 - poor.
+metadata$gen_health_rating <- as.character(metadata$gen_health_rating)
+metadata$gen_health_rating <- replace_na(metadata$gen_health_rating, "missing") #Replace NAs with categorical variable
+
+
+# Self-rated oral health scale: 1 - excellent, 5 - poor.
+metadata$oral_health_rating <- as.character(metadata$oral_health_rating)
+metadata$oral_health_rating <- replace_na(metadata$oral_health_rating, "missing") #Replace NAs with categorical variable
+
+
+# OHIP-5: reverse values so they are consistent with published scale.
+columns_to_reverse <- c("uncomf", "pain", "self_conscious", "taste", "jobs_difficult")
+metadata[columns_to_reverse] <- 5 - metadata[columns_to_reverse]
+
+
+```
+
+## 2. Table 1
+
+Format the table.
+```{r, include = FALSE}
+## TABLE
+table_summary <-
+  list("Gender" =
+         list("Female"    = ~ n_perc(sex=="1"),
+              "Male"      = ~ n_perc(sex=="2")),
+       
+       "Age (years)" =
+         list("Median (IQR)" = ~ median_iqr(age, na_rm=T, show_n = "never"),
+              "Under 18" = ~ n_perc(age_range=="Under 18", na_rm=T, show_denom = "never"),
+              "18-29" = ~ n_perc(age_range=="18-29", na_rm=T, show_denom = "never"),
+              "30-45" = ~ n_perc(age_range=="30-45", na_rm=T, show_denom = "never"),
+              "46-60" = ~ n_perc(age_range=="46-60", na_rm=T, show_denom = "never"),
+              "Over 60" = ~ n_perc(age_range=="61+", na_rm=T, show_denom = "never")),
+       
+       "Location" =
+         list("Metropolitan and Inner Regional" = ~ n_perc(remoteness_group=="Metropolitan and Inner Regional", na_rm=T, show_denom = "never"),
+              "Outer Regional, Remote, and Very Remote" = ~ n_perc(remoteness_group=="Outer Regional, 
+                                                                   Remote, and Very Remote", na_rm=T, show_denom = "never")),
+       
+       "Employment" =
+         list("Employed" = ~ n_perc(emp_cat == "1", na_rm=T, show_denom = "never"),
+              "Not Employed" = ~ n_perc(emp_cat == "2 or 3", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(emp_cat == "missing", na_rm=T, show_denom = "never"),
+              "NA (child)" = ~ sum(is.na(emp_cat))),
+       
+       "Education level" =
+         list("Primary school" = ~ n_perc(edu_cat == "2", na_rm=T, show_denom = "never"),
+              "High school" = ~ n_perc(edu_cat == "3", na_rm=T, show_denom = "never"),
+              "Tertiary" = ~ n_perc(edu_cat == "4 or 5", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(edu_cat == "missing", na_rm=T, show_denom = "never"),
+              "NA (child)" = ~ sum(is.na(edu_cat))),
+       
+       "Health Care Card" =
+         list("Yes" = ~ n_perc(healthcare_card == "1"),
+              "No" = ~ n_perc(healthcare_card == "2"),
+              "Unsure" = ~ n_perc(healthcare_card == "3")),
+       
+       "Car ownership" =
+       list("Yes"    = ~ n_perc(car_own == "1"),
+            "No"      = ~ n_perc(car_own == "2")),
+       
+       "How hard would it be to pay a $100 dental bill?" =
+         list("Not hard or not very hard"    = ~ n_perc(bill_cat == "1 or 2", na_rm=T, show_denom = "never"),
+              "A little bit hard"      = ~ n_perc(bill_cat == "3", na_rm=T, show_denom = "never"),
+              "Very hard or could not pay"      = ~ n_perc(bill_cat == "4 or 5", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(bill_cat == "missing", na_rm=T, show_denom = "never")),
+       
+       "Time since last dental visit" =
+         list("Less than a year ago"  = ~ n_perc(last_dent_visit == "1", na_rm=T, show_denom = "never"),
+              "More than a year ago"    = ~ n_perc(last_dent_visit == "2", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(last_dent_visit == "missing", na_rm=T, show_denom = "never")),
+       
+        "Usual reason for dental visit" =
+         list("Problem"  = ~ n_perc(dentist_reason_cat == "1", na_rm=T, show_denom = "never"),
+              "Check-up"    = ~ n_perc(dentist_reason_cat == "2", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(dentist_reason_cat == "missing", na_rm=T, show_denom = "never")),
+       
+        "Self-rated general health" =
+         list("Excellent"  = ~ n_perc(gen_health_rating == "1", na_rm=T, show_denom = "never"),
+              "Very good"    = ~ n_perc(gen_health_rating == "2", na_rm=T, show_denom = "never"),
+              "Good"    = ~ n_perc(gen_health_rating == "3", na_rm=T, show_denom = "never"),
+              "Fair"    = ~ n_perc(gen_health_rating == "4", na_rm=T, show_denom = "never"),
+              "Poor"    = ~ n_perc(gen_health_rating == "5", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(gen_health_rating == "missing", na_rm=T, show_denom = "never")),
+       
+        "Self-rated oral health" =
+         list("Excellent"  = ~ n_perc(oral_health_rating == "1", na_rm=T, show_denom = "never"),
+              "Very good"    = ~ n_perc(oral_health_rating == "2", na_rm=T, show_denom = "never"),
+              "Good"    = ~ n_perc(oral_health_rating == "3", na_rm=T, show_denom = "never"),
+              "Fair"    = ~ n_perc(oral_health_rating == "4", na_rm=T, show_denom = "never"),
+              "Poor"    = ~ n_perc(oral_health_rating == "5", na_rm=T, show_denom = "never"),
+              "Data missing" = ~ n_perc(oral_health_rating == "missing", na_rm=T, show_denom = "never")),
+       
+       "Oral Health Impact Profile 5 (OHIP-5) Items (0 - never, 4 - very often)" =
+         list("Difficulty eating"  = ~ mean_sd(uncomf, na_rm=T, show_denom = "never"),
+              "Painful aching in mouth"    = ~ mean_sd(pain, na_rm=T, show_denom = "never"),
+              "Feeling self-conscious about teeth/mouth"    = ~ mean_sd(self_conscious, na_rm=T, show_denom = "never"),
+              "Worsened sense of taste"    = ~ mean_sd(taste, na_rm=T, show_denom = "never"),
+              "Difficulty doing usual jobs/activities"    = ~ mean_sd(jobs_difficult, na_rm=T, show_denom = "never"))
+
+  )
+
+whole <- summary_table(metadata, table_summary)
+
+#by_location <- summary_table(dplyr::group_by(metadata, remoteness_group), table_summary)  
+
+```
+
+
+Print Table 1.
+```{r, echo = FALSE, results = "asis"}
+print(whole)
+```
+
+```{r check-wd}
+getwd()
+```
+

@@ -1,0 +1,532 @@
+---
+title: "Table 2"
+author: "Gina Guzzo"
+date: "17/01/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Load libraries and packages.
+
+```{r, include = FALSE}
+library(kableExtra)
+library(rmarkdown)
+set.seed(42)
+library(qwraps2)
+# define the markup language we are working in.
+# options(qwraps2_markup = "latex") is also supported.
+options(qwraps2_markup = "markdown")
+library(readxl) 
+library(dplyr)
+library(tidyr)
+
+```
+
+## 1. Data cleaning
+Import data. 
+Split cost columns that have more than one value into sub-categories, using commas as separators.
+
+```{r, include = FALSE}
+metadata <- read_excel("all_metadata_financial.xlsx")
+
+metadata <- metadata %>%
+  separate(`exam (qty, cost)`, into = c("exam_qty", "exam_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`bw (qty, cost)`, into = c("bw_qty", "bw_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`opg (qty, cost)`, into = c("opg_qty", "opg_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`fluor (qty, cost)`, into = c("fluor_qty", "fluor_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`scrp (qty, cost)`, into = c("scrp_qty", "scrp_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`perio (qty, cost)`, into = c("perio_qty", "perio_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`sealants (est qty, est cost, act qty, act cost)`, into = c("seal_est_qty", "seal_est_cost", "seal_act_qty", "seal_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`5_surf_resto (est qty, est cost, act qty, act cost)`, into = c("5_surf_resto_est_qty", "5_surf_resto_est_cost", "5_surf_resto_act_qty", "5_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`4_surf_resto (est qty, est cost, act qty, act cost)`, into = c("4_surf_resto_est_qty", "4_surf_resto_est_cost", "4_surf_resto_act_qty", "4_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`3_surf_resto (est qty, est cost, act qty, act cost)`, into = c("3_surf_resto_est_qty", "3_surf_resto_est_cost", "3_surf_resto_act_qty", "3_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`2_surf_resto (est qty, est cost, act qty, act cost)`, into = c("2_surf_resto_est_qty", "2_surf_resto_est_cost", "2_surf_resto_act_qty", "2_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`1_surf_resto (est qty, est cost, act qty, act cost)`, into = c("1_surf_resto_est_qty", "1_surf_resto_est_cost", "1_surf_resto_act_qty", "1_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`resto_temp (qty, cost)`, into = c("resto_tmp_qty", "resto_tmp_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`resto_other (qty, cost)`, into = c("resto_oth_qty", "resto_oth_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`exo (est qty, est cost, act qty, act cost)`, into = c("exo_est_qty", "exo_est_cost", "exo_act_qty", "exo_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`endo_rct (qty, cost)`, into = c("endo_rct_qty", "endo_rct_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`surg_other (qty, cost)`, into = c("surg_oth_qty", "surg_oth_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`occ_splint (est qty, est cost, act qty, act cost)`, into = c("occ_splint_est_qty", "occ_splint_est_cost", "occ_splint_act_qty", "occ_splint_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`ohi (qty, cost)`, into = c("ohi_qty", "ohi_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`odont (qty, cost)`, into = c("odont_qty", "odont_cost"), sep = ", ", convert = TRUE)
+```
+
+
+Clean up columns with costs to remove $ symbol.
+```{r}
+cost_cols <- c(
+  "exam_cost", "bw_cost", "opg_cost", "fluor_cost", "scrp_cost", "perio_cost",
+  "seal_est_cost", "seal_act_cost",
+  "5_surf_resto_est_cost", "5_surf_resto_act_cost",
+  "4_surf_resto_est_cost", "4_surf_resto_act_cost",
+  "3_surf_resto_est_cost", "3_surf_resto_act_cost",
+  "2_surf_resto_est_cost", "2_surf_resto_act_cost",
+  "1_surf_resto_est_cost", "1_surf_resto_act_cost",
+  "resto_tmp_cost", "resto_oth_cost",
+  "exo_est_cost", "exo_act_cost",
+  "endo_rct_cost", "surg_oth_cost",
+  "occ_splint_est_cost", "occ_splint_act_cost",
+  "ohi_cost", "odont_cost",
+  "prosth (cost)"
+)
+
+metadata <- metadata %>%
+  mutate(across(
+    all_of(cost_cols),
+    ~ as.numeric(gsub("\\$", "", .x))
+  ))
+```
+
+
+Make broader categories for treatment types by summing columns.
+```{r}
+metadata <- metadata %>%
+  mutate(
+    # Sum diagnostic costs
+    diagnostics_cost = rowSums(select(., exam_cost, bw_cost, opg_cost), na.rm = TRUE),
+    
+    # Sum preventive treatment costs
+    prevent_tmnt_cost = rowSums(select(., 
+      fluor_cost, scrp_cost, seal_act_cost, ohi_cost, odont_cost, occ_splint_act_cost), na.rm = TRUE),
+    
+    # Sum restoration costs
+    restorations_cost = rowSums(select(., 
+      `5_surf_resto_act_cost`, `4_surf_resto_act_cost`, 
+      `3_surf_resto_act_cost`, `2_surf_resto_act_cost`, 
+      `1_surf_resto_act_cost`, resto_tmp_cost, resto_oth_cost), na.rm = TRUE),
+    
+    # Sum prosthodontic costs
+    prosth_cost = `prosth (cost)`
+    ) %>%
+    
+  # Make column of total costs with main treatment groupings.
+  mutate(
+    total_cost_new = rowSums(select(., 
+      diagnostics_cost, prevent_tmnt_cost, restorations_cost, perio_cost, 
+      exo_act_cost, endo_rct_cost, surg_oth_cost, prosth_cost), na.rm = TRUE)
+  )
+    
+```
+
+
+Compare total_cost_new to previous total_cost column made in Excel (sanity check).
+```{r}
+metadata <- metadata %>%
+  mutate(
+    total_cost = as.numeric(total_cost),
+    total_cost_new = as.numeric(total_cost_new),
+    match_status = if_else(total_cost_new == total_cost, "Match", "Mismatch"),
+    difference = total_cost_new - total_cost # Optional: Calculate the difference for mismatches
+  )
+
+
+## Filter rows where there is a mismatch
+mismatches <- metadata %>%
+  filter(match_status == "Mismatch") %>%
+  select(p_ID, total_cost, total_cost_new) %>%
+  print()
+
+```
+
+All is okay, 295 and 39C come up due to differences in decimal places.
+
+Format categorical variables.
+```{r}
+# Location
+metadata <- metadata %>%
+  mutate(
+    remoteness_group = case_when(
+      remoteness %in% c("Major Cities of Australia", "Inner Regional Australia") ~ "Metropolitan and Inner Regional",
+      remoteness %in% c("Outer Regional Australia", "Remote Australia", "Very Remote Australia") ~ "Outer Regional, Remote, and Very Remote"
+    )
+  )
+
+# Age
+metadata$age_range <- ifelse(metadata$age < 18, "Under 18",
+                             ifelse(metadata$age > 17 & metadata$age < 30, "18 to 29",
+                                ifelse(metadata$age > 29 & metadata$age < 46, "30 to 45", 
+                                    ifelse(metadata$age > 45 & metadata$age < 61, "46 to 60", 
+                                           ifelse(metadata$age > 60, "Over 60", NA)))))
+
+metadata$age_range <- factor(metadata$age_range, order = TRUE, 
+                           levels = c("Under 18", "18 to 29", "30 to 45", "46 to 60", "Over 60"))
+
+```
+
+
+## 2. Format data into tables
+Format Table 2.
+```{r}
+summary_table <- metadata %>%
+  group_by(age_range) %>%
+  summarize(
+    Diagnostics = sum(diagnostics_cost, na.rm = TRUE),
+    Preventive = sum(prevent_tmnt_cost, na.rm = TRUE),
+    Restorations = sum(restorations_cost, na.rm = TRUE),
+    Periodontics = sum(perio_cost, na.rm = TRUE),
+    Extractions = sum(exo_act_cost, na.rm = TRUE),
+    Endodontics = sum(endo_rct_cost, na.rm = TRUE),
+    "Other surgical" = sum(surg_oth_cost, na.rm = TRUE),
+    Prosthodontics = sum(prosth_cost, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = -age_range,
+    names_to = "Treatment_Type",
+    values_to = "Cost"
+  ) %>%
+  group_by(age_range) %>%
+  mutate(
+    Total_Cost = sum(Cost),
+    Percentage = (Cost / Total_Cost) * 100
+  ) %>%
+  ungroup()
+
+
+# Reshape data into wide format for the table
+final_table <- summary_table %>%
+  mutate(
+    Cost_Percentage = paste0("$", formatC(Cost, format = "f", big.mark = ",", digits = 0), 
+                             " (", formatC(Percentage, format = "f", digits = 1), "%)")
+  ) %>%
+  select(Treatment_Type, age_range, Cost_Percentage) %>%
+  pivot_wider(
+    names_from = age_range,
+    values_from = Cost_Percentage,
+    names_glue = "{age_range}"
+  )
+
+
+print(final_table)
+```
+
+Format Table 2 to include number of participants in each age range group in column headings.
+```{r}
+# Add counts for each age range group
+age_counts <- metadata %>%
+  count(age_range) %>%
+  mutate(age_range_label = paste0(age_range, " (n = ", n, ")"))
+
+summary_table <- summary_table %>%
+  left_join(age_counts, by = "age_range") %>%
+  mutate(age_range = age_range_label) %>%
+  select(-n, -age_range_label)  # Remove extra columns after merging
+
+final_table <- summary_table %>%
+  mutate(
+    Cost_Percentage = paste0("$", formatC(Cost, format = "f", big.mark = ",", digits = 0), 
+                             " (", formatC(Percentage, format = "f", digits = 1), "%)")
+  ) %>%
+  select(Treatment_Type, age_range, Cost_Percentage) %>%
+  pivot_wider(
+    names_from = age_range,
+    values_from = Cost_Percentage,
+    names_glue = "{age_range}"
+  )
+
+print(final_table)
+```
+
+Format table to include n values for each age group.
+```{r}
+# Count participants in each age group
+age_counts <- metadata %>%
+  count(age_range) %>%
+  mutate(age_range = paste0(age_range, " (n = ", n, ")")) %>%
+  select(-n)  # Remove count column after merging
+
+# Summarize treatment costs by age range
+summary_table <- metadata %>%
+  group_by(age_range) %>%
+  summarize(
+    Diagnostics = sum(diagnostics_cost, na.rm = TRUE),
+    Preventive = sum(prevent_tmnt_cost, na.rm = TRUE),
+    Restorations = sum(restorations_cost, na.rm = TRUE),
+    Periodontics = sum(perio_cost, na.rm = TRUE),
+    Extractions = sum(exo_act_cost, na.rm = TRUE),
+    Endodontics = sum(endo_rct_cost, na.rm = TRUE),
+    "Other surgical" = sum(surg_oth_cost, na.rm = TRUE),
+    Prosthodontics = sum(prosth_cost, na.rm = TRUE)
+  ) %>%
+  left_join(age_counts, by = "age_range")  # Attach age group labels with participant counts
+
+# Convert costs to percentage within each age group
+summary_table <- summary_table %>%
+  pivot_longer(
+    cols = -age_range, 
+    names_to = "Treatment_Type", 
+    values_to = "Cost"
+  ) %>%
+  group_by(age_range) %>%
+  mutate(
+    Total_Cost = sum(Cost),
+    Percentage = (Cost / Total_Cost) * 100
+  ) %>%
+  ungroup()
+
+# Reshape data so age groups are rows and treatment types are columns
+final_table <- summary_table %>%
+  mutate(
+    Cost_Percentage = paste0("$", formatC(Cost, format = "f", big.mark = ",", digits = 0), 
+                             " (", formatC(Percentage, format = "f", digits = 1), "%)")
+  ) %>%
+  select(age_range, Treatment_Type, Cost_Percentage) %>%
+  pivot_wider(
+    names_from = Treatment_Type,
+    values_from = Cost_Percentage
+  )
+
+# Print final table
+print(final_table)
+```
+
+
+Summarise expenditure across total cohort.
+```{r}
+treatment_data <- metadata %>%
+  summarize(
+    Diagnostics = sum(diagnostics_cost, na.rm = TRUE),
+    Preventive = sum(prevent_tmnt_cost, na.rm = TRUE),
+    Restorations = sum(restorations_cost, na.rm = TRUE),
+    Periodontics = sum(perio_cost, na.rm = TRUE),
+    Extractions = sum(exo_act_cost, na.rm = TRUE),
+    Endodontics = sum(endo_rct_cost, na.rm = TRUE),
+    "Other surgical" = sum(surg_oth_cost, na.rm = TRUE),
+    Prosthodontics = sum(prosth_cost, na.rm = TRUE))
+
+print(treatment_data)
+```
+
+## 3.1 Figure 1A
+Create pie chart plot for total expenditure.
+```{r}
+library(scales)
+library(data.table)
+library(ggrepel)
+library(paletteer)
+
+## Data transpose
+treatment_data <- transpose(treatment_data, keep.names = "Treatment_type") 
+treatment_data <- treatment_data %>%
+  rename(Cost = V1)
+
+## Create order of labels
+treatment_data$Treatment_type <- factor(
+  treatment_data$Treatment_type,
+  levels = (c("Diagnostics",
+              "Preventive",
+             "Restorations", 
+             "Extractions",
+             "Endodontics",
+             "Periodontics",
+             "Prosthodontics",
+             "Other surgical")
+))
+
+treatment_data <- treatment_data %>%
+  arrange(Treatment_type)
+
+
+## Calculate percentages, label positions, and make labels
+treatment_data <- treatment_data %>%
+  mutate(
+    csum = rev(cumsum(rev(Cost))),
+    pos = Cost / 2 + lead(csum, 1),
+    pos = if_else(is.na(pos), Cost / 2, pos),
+    Percentage = Cost / sum(Cost) * 100,
+    Label = paste0("$", sprintf("%.1f", Cost / 1000), "k\n(", sprintf("%.1f", Percentage), "%)")
+  )
+
+
+## Reorder colour palette
+#colours <- palettes_d$MetBrewer$Thomas
+#colours
+custom_colours <- c("#e1896e", 
+                    "#c44d76", 
+                    "#4457a5", 
+                    "#13315f", 
+                    "#b1a1cc", 
+                    "#59386c", 
+                    "#447861", 
+                    "#7caf5c")
+
+
+
+## Create pie chart
+plot1 <- ggplot(treatment_data, aes(x = 2, y = Cost, fill = Treatment_type)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  #Internal labels
+  geom_text(aes(label = ifelse(Percentage > 2, Label, "")),
+            position = position_stack(vjust = 0.5),
+            colour = "white",
+            size = 2.8
+  ) +
+  #External labels for small slices
+  geom_text_repel(data = treatment_data %>% filter(Percentage < 2),
+                  aes(x = 2, y = pos, label = Label), 
+                  size = 2.8,
+                  nudge_x = 0.8,
+                  segment.size = 0,
+                  show.legend = FALSE
+) +
+  xlim(0.4, 3) +  #Creates the donut hole
+  theme_void() +
+  labs(fill = "Treatment type") +
+  theme(
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9),
+    legend.position = "right"
+  ) +
+  scale_fill_manual(values = custom_colours) +
+  #Centre label
+    geom_text(
+    x = 0, y = 0,
+    label = "$290,436\n(100%)",
+    size = 3,
+    lineheight = 1.2,
+    vjust = -0.5,
+    hjust = 0.5
+  )
+
+
+plot1
+
+
+ggsave(filename = "pie.tiff",
+       height = 6, width = 8, dpi = 300, device='tiff')
+
+```
+
+
+## 3.2 Figure 1B
+```{r}
+library(ggplot2)
+
+## Round percentages in summary table to 1 decimal place
+summary_table <- summary_table %>%
+  mutate(across(where(is.numeric), round, 1))
+
+## Create levels for age groups and treatment types
+summary_table$age_range <- factor(
+  summary_table$age_range,
+  levels = c("Under 18", 
+             "18 to 29", 
+             "30 to 45", 
+             "46 to 60", 
+             "Over 60")
+)
+
+## Create vector of n values (order must match the age_range factor levels)
+n_values <- c("Under 18" = expression(atop(paste(bold("Under 18")), "(n = 9)")),
+              "18 to 29" = expression(atop(paste(bold("18 to 29")), "(n = 28)")),
+              "30 to 45" = expression(atop(paste(bold("30 to 45")), "(n = 51)")),
+              "46 to 60" = expression(atop(paste(bold("46 to 60")), "(n = 57)")),
+              "Over 60" = expression(atop(paste(bold("Over 60")), "(n = 28)")))
+
+
+summary_table$Treatment_Type <- factor(
+  summary_table$Treatment_Type,
+  levels = (c("Diagnostics",
+              "Preventive",
+             "Restorations", 
+             "Extractions",
+             "Endodontics",
+             "Periodontics",
+             "Prosthodontics",
+             "Other surgical")
+))
+
+
+
+## Create a stacked horizontal bar chart
+plot2 <- ggplot(summary_table, aes(x = age_range, y = Percentage, fill = Treatment_Type)) +
+  geom_bar(stat = "identity", colour = "white", width = 0.8) +
+  #coord_flip() +  #For horizontal bar chart
+  geom_text(aes(label = ifelse(Percentage >= 3, paste0(sprintf("%.1f", Percentage), "%"), "")),
+  position = position_stack(vjust = 0.5),
+  colour = "white",
+  size = 5) +
+  geom_text(aes(label = ifelse(Percentage < 3 & Percentage > 0, paste0(sprintf("%.1f", Percentage), "%"), "")),
+  position = position_stack(vjust = 0.5),
+  colour = "white",
+  size = 2.5) +
+  labs(
+    x = "Age group (years)",
+    y = "Percentage of total cost",
+    fill = "Treatment type"
+  ) +
+  theme_bw() +
+ scale_x_discrete(labels = n_values, expand = c(0, 0.45)) + # Remove vertical space above/below bars
+ scale_y_continuous(labels = scales::percent_format(scale = 1), expand = expansion(mult = c(0.01, 0))) +  # Remove left/right padding
+  theme(
+    axis.title = element_text(face = "bold", size = 14),
+    axis.title.x = element_text(vjust = -1.8),
+    axis.text = element_text(size = 14, colour = "black"),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    legend.title = element_text(face = "bold", size = 12),
+    legend.text = element_text(size = 12),
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    panel.spacing = unit(0.1, "lines"),
+    plot.margin = margin(5, 5, 10, 5)
+    ) +
+  scale_fill_manual(values = custom_colours)
+
+
+plot2
+```
+
+Save plot for journal format.
+```{r}
+ggsave(filename = "bar.tiff",
+       height = 10, width = 8, dpi = 300, device='tiff')
+```
+
+
+
+## 3.3 Figure 1 legend
+```{r}
+## Combine with patchwork.
+library(patchwork)
+library(cowplot)
+
+
+## Make plot to extract legend from
+plot_legend <- ggplot(treatment_data, aes(x = 2, y = Cost, fill = Treatment_type)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(fill = "Treatment\ntype", ) +
+  theme(legend.position = "bottom",
+    legend.title = element_text(size = 12, hjust = 0.5),
+    legend.text = element_text(size = 11),
+    legend.key.size = unit(0.8, "cm")
+  )  +
+  scale_fill_manual(values = custom_colours)
+
+plot_legend
+
+## Find which grob the legend is contained in
+#all_guides <- cowplot::get_plot_component(plot1, "guide-box", return_all = TRUE)
+#all_guides
+
+## Pull the legend from the third grob
+#legend <- all_guides[[3]]
+#plot_grid(legend)
+
+```
+
+Save legend.
+```{r}
+ggsave(filename = "legend.tiff",
+       height = 10, width = 10, dpi = 300, device='tiff')
+```
+
+Full Figure 1 made by combining images in Powerpoint.
