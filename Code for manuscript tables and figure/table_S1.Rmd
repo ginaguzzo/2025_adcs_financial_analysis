@@ -1,0 +1,267 @@
+---
+title: "Table S1"
+author: "Gina Guzzo"
+date: "17/01/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Load libraries and packages.
+
+```{r, include = FALSE}
+library(kableExtra)
+library(rmarkdown)
+set.seed(42)
+library(qwraps2)
+# define the markup language we are working in.
+# options(qwraps2_markup = "latex") is also supported.
+options(qwraps2_markup = "markdown")
+library(readxl) 
+library(dplyr)
+library(tidyr)
+
+knitr::opts_knit$set(root.dir = "/2025_dcs_financial_analysis/Analysis/")
+```
+
+
+Import data. 
+Split cost columns that have more than one value into sub-categories, using commas as separators.
+
+```{r, include = FALSE}
+metadata <- read_excel("metadata/all_metadata_financial.xlsx")
+
+metadata <- metadata %>%
+  separate(`exam (qty, cost)`, into = c("exam_qty", "exam_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`bw (qty, cost)`, into = c("bw_qty", "bw_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`opg (qty, cost)`, into = c("opg_qty", "opg_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`fluor (qty, cost)`, into = c("fluor_qty", "fluor_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`scrp (qty, cost)`, into = c("scrp_qty", "scrp_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`perio (qty, cost)`, into = c("perio_qty", "perio_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`sealants (est qty, est cost, act qty, act cost)`, into = c("seal_est_qty", "seal_est_cost", "seal_act_qty", "seal_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`5_surf_resto (est qty, est cost, act qty, act cost)`, into = c("5_surf_resto_est_qty", "5_surf_resto_est_cost", "5_surf_resto_act_qty", "5_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`4_surf_resto (est qty, est cost, act qty, act cost)`, into = c("4_surf_resto_est_qty", "4_surf_resto_est_cost", "4_surf_resto_act_qty", "4_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`3_surf_resto (est qty, est cost, act qty, act cost)`, into = c("3_surf_resto_est_qty", "3_surf_resto_est_cost", "3_surf_resto_act_qty", "3_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`2_surf_resto (est qty, est cost, act qty, act cost)`, into = c("2_surf_resto_est_qty", "2_surf_resto_est_cost", "2_surf_resto_act_qty", "2_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`1_surf_resto (est qty, est cost, act qty, act cost)`, into = c("1_surf_resto_est_qty", "1_surf_resto_est_cost", "1_surf_resto_act_qty", "1_surf_resto_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`resto_temp (qty, cost)`, into = c("resto_tmp_qty", "resto_tmp_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`resto_other (qty, cost)`, into = c("resto_oth_qty", "resto_oth_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`exo (est qty, est cost, act qty, act cost)`, into = c("exo_est_qty", "exo_est_cost", "exo_act_qty", "exo_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`endo_rct (qty, cost)`, into = c("endo_rct_qty", "endo_rct_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`surg_other (qty, cost)`, into = c("surg_oth_qty", "surg_oth_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`occ_splint (est qty, est cost, act qty, act cost)`, into = c("occ_splint_est_qty", "occ_splint_est_cost", "occ_splint_act_qty", "occ_splint_act_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`ohi (qty, cost)`, into = c("ohi_qty", "ohi_cost"), sep = ", ", convert = TRUE) %>%
+  separate(`odont (qty, cost)`, into = c("odont_qty", "odont_cost"), sep = ", ", convert = TRUE)
+```
+
+
+Clean up columns with costs to remove $ symbol.
+```{r}
+metadata <- metadata %>%
+  mutate(
+    exam_cost = as.numeric(gsub("\\$", "", exam_cost)),
+    bw_cost = as.numeric(gsub("\\$", "", bw_cost)),
+    opg_cost = as.numeric(gsub("\\$", "", opg_cost)),
+    fluor_cost = as.numeric(gsub("\\$", "", fluor_cost)),
+    scrp_cost = as.numeric(gsub("\\$", "", scrp_cost)),
+    perio_cost = as.numeric(gsub("\\$", "", perio_cost)),
+    seal_est_cost = as.numeric(gsub("\\$", "", seal_est_cost)),
+    seal_act_cost = as.numeric(gsub("\\$", "", seal_act_cost)),
+    `5_surf_resto_est_cost` = as.numeric(gsub("\\$", "", `5_surf_resto_est_cost`)),
+    `5_surf_resto_act_cost` = as.numeric(gsub("\\$", "", `5_surf_resto_act_cost`)),
+    `4_surf_resto_est_cost` = as.numeric(gsub("\\$", "", `4_surf_resto_est_cost`)),
+    `4_surf_resto_act_cost` = as.numeric(gsub("\\$", "", `4_surf_resto_act_cost`)),
+    `3_surf_resto_est_cost` = as.numeric(gsub("\\$", "", `3_surf_resto_est_cost`)),
+    `3_surf_resto_act_cost` = as.numeric(gsub("\\$", "", `3_surf_resto_act_cost`)),
+    `2_surf_resto_est_cost` = as.numeric(gsub("\\$", "", `2_surf_resto_est_cost`)),
+    `2_surf_resto_act_cost` = as.numeric(gsub("\\$", "", `2_surf_resto_act_cost`)),
+    `1_surf_resto_est_cost` = as.numeric(gsub("\\$", "", `1_surf_resto_est_cost`)),
+    `1_surf_resto_act_cost` = as.numeric(gsub("\\$", "", `1_surf_resto_act_cost`)),
+    resto_tmp_cost = as.numeric(gsub("\\$", "", resto_tmp_cost)),
+    resto_oth_cost = as.numeric(gsub("\\$", "", resto_oth_cost)),
+    exo_est_cost = as.numeric(gsub("\\$", "", exo_est_cost)),
+    exo_act_cost = as.numeric(gsub("\\$", "", exo_act_cost)),
+    endo_rct_cost = as.numeric(gsub("\\$", "", endo_rct_cost)),
+    surg_oth_cost = as.numeric(gsub("\\$", "", surg_oth_cost)),
+    occ_splint_est_cost = as.numeric(gsub("\\$", "", occ_splint_est_cost)),
+    occ_splint_act_cost = as.numeric(gsub("\\$", "", occ_splint_act_cost)),
+    ohi_cost = as.numeric(gsub("\\$", "", ohi_cost)),
+    odont_cost = as.numeric(gsub("\\$", "", odont_cost)),
+    `prosth (cost)` = as.numeric(gsub("\\$", "", `prosth (cost)`))
+    
+  )
+```
+
+
+Make broader categories for treatment types by summing columns.
+```{r}
+metadata <- metadata %>%
+  mutate(
+    # Sum diagnostic costs
+    diagnostics_cost = rowSums(select(., exam_cost, bw_cost, opg_cost), na.rm = TRUE),
+    
+    # Sum preventative treatment costs
+    prevent_tmnt_cost = rowSums(select(., 
+      fluor_cost, scrp_cost, seal_act_cost, ohi_cost, odont_cost, occ_splint_act_cost), na.rm = TRUE),
+    
+    # Sum restoration costs
+    restorations_cost = rowSums(select(., 
+      `5_surf_resto_act_cost`, `4_surf_resto_act_cost`, 
+      `3_surf_resto_act_cost`, `2_surf_resto_act_cost`, 
+      `1_surf_resto_act_cost`, resto_tmp_cost, resto_oth_cost), na.rm = TRUE),
+    
+    # Sum prosthodontic costs
+    prosth_cost = `prosth (cost)`
+    ) %>%
+    
+  # Make column of total costs with main treatment groupings.
+  mutate(
+    total_cost_new = rowSums(select(., 
+      diagnostics_cost, prevent_tmnt_cost, restorations_cost, perio_cost, 
+      exo_act_cost, endo_rct_cost, surg_oth_cost, prosth_cost), na.rm = TRUE)
+  )
+    
+```
+
+
+Compare total_cost_new to previous total_cost column made in Excel.
+```{r}
+metadata <- metadata %>%
+  mutate(
+    total_cost = as.numeric(total_cost),
+    total_cost_new = as.numeric(total_cost_new),
+    match_status = if_else(total_cost_new == total_cost, "Match", "Mismatch"),
+    difference = total_cost_new - total_cost # Optional: Calculate the difference for mismatches
+  )
+
+
+# Filter rows where there is a mismatch
+mismatches <- metadata %>%
+  filter(match_status == "Mismatch") %>%
+  select(p_ID, total_cost, total_cost_new) %>%
+  print()
+
+```
+
+All is okay, 295 comes up due to differences in decimal length.
+
+Format categorical variables.
+```{r}
+# Location
+metadata <- metadata %>%
+  mutate(
+    remoteness_group = case_when(
+      remoteness %in% c("Major Cities of Australia", "Inner Regional Australia") ~ "Metropolitan and Inner Regional",
+      remoteness %in% c("Outer Regional Australia", "Remote Australia", "Very Remote Australia") ~ "Outer Regional, Remote, and Very Remote"
+    )
+  )
+
+# Age
+metadata$age_range <- ifelse(metadata$age < 18, "Under 18",
+                             ifelse(metadata$age > 17 & metadata$age < 30, "18-29",
+                                ifelse(metadata$age > 29 & metadata$age < 46, "30-45", 
+                                    ifelse(metadata$age > 45 & metadata$age < 61, "46-60", 
+                                           ifelse(metadata$age > 60, "Over 60", NA)))))
+
+metadata$age_range <- factor(metadata$age_range, order = TRUE, 
+                           levels = c("Under 18", "18-29", "30-45", "46-60", "Over 60"))
+
+```
+
+
+
+Format Table S1.
+```{r}
+summary_table <- metadata %>%
+  group_by(remoteness_group) %>%
+  summarize(
+    Diagnostics = sum(diagnostics_cost, na.rm = TRUE),
+    Preventative = sum(prevent_tmnt_cost, na.rm = TRUE),
+    Restorations = sum(restorations_cost, na.rm = TRUE),
+    Periodontics = sum(perio_cost, na.rm = TRUE),
+    Extractions = sum(exo_act_cost, na.rm = TRUE),
+    Endodontics = sum(endo_rct_cost, na.rm = TRUE),
+    Other_Surgical = sum(surg_oth_cost, na.rm = TRUE),
+    Prosthodontics = sum(prosth_cost, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = -remoteness_group,
+    names_to = "Treatment_Type",
+    values_to = "Cost"
+  ) %>%
+  group_by(remoteness_group) %>%
+  mutate(
+    Total_Cost = sum(Cost),
+    Percentage = (Cost / Total_Cost) * 100
+  ) %>%
+  ungroup()
+
+
+# Reshape data into wide format for the table
+final_table <- summary_table %>%
+  mutate(
+    Cost_Percentage = paste0("$", formatC(Cost, format = "f", big.mark = ",", digits = 0), 
+                             " (", formatC(Percentage, format = "f", digits = 1), "%)")
+  ) %>%
+  select(Treatment_Type, remoteness_group, Cost_Percentage) %>%
+  pivot_wider(
+    names_from = remoteness_group,
+    values_from = Cost_Percentage,
+    names_glue = "{remoteness_group}"
+  )
+
+
+print(final_table)
+```
+
+Format Table S1 to include number of participants in each location group in column headings.
+```{r}
+# Add counts for each age range group
+location_counts <- metadata %>%
+  count(remoteness_group) %>%
+  mutate(remoteness_group_label = paste0(remoteness_group, " (n = ", n, ")"))
+
+summary_table <- summary_table %>%
+  left_join(location_counts, by = "remoteness_group") %>%
+  mutate(remoteness_group = remoteness_group_label) %>%
+  select(-n, -remoteness_group_label)  # Remove extra columns after merging
+
+final_table <- summary_table %>%
+  mutate(
+    Cost_Percentage = paste0("$", formatC(Cost, format = "f", big.mark = ",", digits = 0), 
+                             " (", formatC(Percentage, format = "f", digits = 1), "%)")
+  ) %>%
+  select(Treatment_Type, remoteness_group, Cost_Percentage) %>%
+  pivot_wider(
+    names_from = remoteness_group,
+    values_from = Cost_Percentage,
+    names_glue = "{remoteness_group}"
+  )
+
+print(final_table)
+```
+
+Calculate median age for each location group.
+```{r}
+# Calculate median and IQR of age by remoteness group
+age_summary <- metadata %>%
+  group_by(remoteness_group) %>%
+  summarize(
+    N = n(),
+    Median_Age = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(
+    IQR = paste0(Median_Age, " (", Q1, "–", Q3, ")")
+  ) %>%
+  select(remoteness_group, N, IQR)
+
+
+# Display the result
+knitr::kable(age_summary, caption = "Median Age and IQR by Location Group")
+```
+

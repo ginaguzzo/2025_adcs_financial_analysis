@@ -1,8 +1,10 @@
 ---
-title: "Table 2"
+title: "Figure 1"
 author: "Gina Guzzo"
 date: "17/01/2025"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,9 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-Load libraries and packages.
 
-```{r, include = FALSE}
+```{r, include=FALSE}
+## Load libraries and packages.
+
 library(kableExtra)
 library(rmarkdown)
 set.seed(42)
@@ -26,12 +29,13 @@ library(tidyr)
 
 ```
 
+
 ## 1. Data cleaning
+
 Import data. 
 Split cost columns that have more than one value into sub-categories, using commas as separators.
-
-```{r, include = FALSE}
-metadata <- read_excel("all_metadata_financial.xlsx")
+```{r}
+metadata <- read_excel("/mnt/c/Users/a1640999/Documents/research_work/dcs_financial_analysis_2024/Analysis/metadata/all_metadata_financial.xlsx")
 
 metadata <- metadata %>%
   separate(`exam (qty, cost)`, into = c("exam_qty", "exam_cost"), sep = ", ", convert = TRUE) %>%
@@ -201,8 +205,12 @@ final_table <- summary_table %>%
   )
 
 
-print(final_table)
 ```
+
+```{r}
+knitr::kable(final_table)
+```
+
 
 Format Table 2 to include number of participants in each age range group in column headings.
 ```{r}
@@ -228,8 +236,12 @@ final_table <- summary_table %>%
     names_glue = "{age_range}"
   )
 
-print(final_table)
 ```
+
+```{r}
+knitr::kable(final_table)
+```
+
 
 Format table to include n values for each age group.
 ```{r}
@@ -280,8 +292,11 @@ final_table <- summary_table %>%
     values_from = Cost_Percentage
   )
 
-# Print final table
-print(final_table)
+```
+
+
+```{r}
+knitr::kable(final_table)
 ```
 
 
@@ -298,8 +313,13 @@ treatment_data <- metadata %>%
     "Other surgical" = sum(surg_oth_cost, na.rm = TRUE),
     Prosthodontics = sum(prosth_cost, na.rm = TRUE))
 
-print(treatment_data)
 ```
+
+
+```{r}
+knitr::kable(treatment_data)
+```
+
 
 ## 3.1 Figure 1A
 Create pie chart plot for total expenditure.
